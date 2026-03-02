@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Remote Installer - Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <h1>OpenClaw Remote Installer</h1>
+    </div>
+    <div class="header-right">
+      <span class="status-badge" id="status-badge">
+        <span class="status-dot disconnected"></span>
+        <span id="status-text">รอนักเรียนเชื่อมต่อ...</span>
+      </span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel" id="sysinfo-panel">
+        <h2 class="panel-title">ข้อมูลระบบ</h2>
+        <div id="sysinfo-content" class="sysinfo-empty">
+          <p>ยังไม่มีนักเรียนเชื่อมต่อ</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">คำสั่งด่วน</h2>
+        <div class="quick-actions">
+          <button class="action-btn" onclick="runQuickCommand('node --version')" disabled>ตรวจ Node.js</button>
+          <button class="action-btn" onclick="runQuickCommand('npm --version')" disabled>ตรวจ npm</button>
+          <button class="action-btn" onclick="runQuickCommand('echo $PATH')" disabled>ตรวจ PATH</button>
+          <button class="action-btn" onclick="runQuickCommand('which openclaw || where openclaw 2>/dev/null || echo not found')" disabled>ตรวจ OpenClaw</button>
+          <button class="action-btn" onclick="runQuickCommand('openclaw doctor')" disabled>วิเคราะห์ระบบ</button>
+          <button class="action-btn primary" onclick="autoInstall()" disabled id="auto-install-btn">ติดตั้งอัตโนมัติ</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">การเชื่อมต่อ</h2>
+        <div class="conn-info">
+          <div class="conn-row">
+            <span class="conn-label">URL สำหรับนักเรียน</span>
+            <span class="conn-value" id="tunnel-url">-</span>
+          </div>
+          <div class="conn-row">
+            <span class="conn-label">เวลาเชื่อมต่อ</span>
+            <span class="conn-value" id="uptime">-</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="panel terminal-panel">
+        <h2 class="panel-title">
+          Terminal
+          <button class="clear-btn" onclick="clearTerminal()">ล้าง</button>
+        </h2>
+        <div class="terminal" id="terminal">
+          <div class="terminal-line info">รอนักเรียนเชื่อมต่อ...</div>
+        </div>
+        <div class="terminal-input-row">
+          <input type="text" id="cmd-input" class="terminal-input" placeholder="พิมพ์คำสั่ง..." disabled
+                 onkeydown="if(event.key==='Enter')runCommand()">
+          <button class="run-btn" onclick="runCommand()" disabled id="run-btn">รัน</button>
+        </div>
+      </div>
+
+      <div class="panel ai-panel">
+        <h2 class="panel-title">
+          AI ผู้ช่วย
+          <span class="ai-badge" id="ai-badge">พร้อม</span>
+        </h2>
+        <div class="ai-content" id="ai-content">
+          <div class="ai-message info">
+            กดปุ่ม "ติดตั้งอัตโนมัติ" เพื่อให้ AI ช่วยติดตั้ง หรือพิมพ์คำสั่งเองด้านบน
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/dashboard.js"></script>
+</body>
+</html>
