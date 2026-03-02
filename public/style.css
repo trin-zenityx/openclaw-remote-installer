@@ -40,13 +40,13 @@ body {
   color: inherit;
 }
 .header-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  transition: border-color 0.2s;
+  height: 22px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  transition: all 0.2s;
+  opacity: 0.85;
 }
-.header-brand:hover .header-logo { border-color: var(--accent); }
+.header-brand:hover .header-logo { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 4px rgba(56,189,248,0.4)); }
 .header-brand-text {
   display: flex;
   flex-direction: column;
@@ -58,11 +58,7 @@ body {
   -webkit-text-fill-color: transparent;
   line-height: 1.2;
 }
-.header-credit {
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.3px;
-}
+.header-brand-text { display: flex; align-items: center; }
 .status-badge {
   display: flex;
   align-items: center;

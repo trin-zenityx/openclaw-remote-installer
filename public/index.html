@@ -86,28 +86,22 @@
     .credits a {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       text-decoration: none;
       color: #94a3b8;
-      font-size: 13px;
+      font-size: 12px;
+      transition: all 0.2s;
+      opacity: 0.7;
+    }
+    .credits a:hover { opacity: 1; }
+    .credits .dev-by { font-size: 11px; color: #64748b; }
+    .credits .logo-img {
+      height: 24px;
+      width: auto;
+      filter: brightness(0) invert(1);
       transition: all 0.2s;
     }
-    .credits a:hover { color: #e2e8f0; }
-    .credits img {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 2px solid #334155;
-      transition: border-color 0.2s;
-    }
-    .credits a:hover img { border-color: #38bdf8; }
-    .credits .credit-text {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .credits .dev-by { font-size: 11px; color: #64748b; }
-    .credits .dev-name { font-size: 14px; font-weight: 600; }
+    .credits a:hover .logo-img { filter: brightness(0) invert(1) drop-shadow(0 0 4px rgba(56,189,248,0.5)); }
   </style>
 </head>
 <body>
@@ -163,11 +157,8 @@
 
     <div class="credits">
       <a href="https://github.com/trin-zenityx" target="_blank" rel="noopener">
-        <img src="https://avatars.githubusercontent.com/u/258954177?s=128&v=4" alt="ZenityX Logo">
-        <span class="credit-text">
-          <span class="dev-by">Developed by</span>
-          <span class="dev-name">ZenityX</span>
-        </span>
+        <span class="dev-by">Developed by</span>
+        <img src="/logo-white.png" alt="ZenityX" class="logo-img">
       </a>
     </div>
   </div>
