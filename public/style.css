@@ -32,11 +32,36 @@ body {
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
 }
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.header-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  transition: border-color 0.2s;
+}
+.header-brand:hover .header-logo { border-color: var(--accent); }
+.header-brand-text {
+  display: flex;
+  flex-direction: column;
+}
 .header h1 {
   font-size: 18px;
   background: linear-gradient(135deg, var(--accent), var(--purple));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+}
+.header-credit {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
 }
 .status-badge {
   display: flex;

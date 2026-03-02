@@ -80,6 +80,36 @@
       margin-top: 12px;
       display: none;
     }
+    .credits {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+    }
+    .credits a {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #94a3b8;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .credits a:hover { color: #e2e8f0; }
+    .credits img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #334155;
+      transition: border-color 0.2s;
+    }
+    .credits a:hover img { border-color: #38bdf8; }
+    .credits .credit-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .credits .dev-by { font-size: 11px; color: #64748b; }
+    .credits .dev-name { font-size: 14px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -95,6 +125,16 @@
       <button type="submit" class="login-btn" id="login-btn">เข้าสู่ระบบ</button>
     </form>
     <p class="error" id="error-msg"></p>
+
+    <div class="credits">
+      <a href="https://github.com/trin-zenityx" target="_blank" rel="noopener">
+        <img src="https://avatars.githubusercontent.com/u/258954177?s=128&v=4" alt="ZenityX Logo">
+        <span class="credit-text">
+          <span class="dev-by">Developed by</span>
+          <span class="dev-name">ZenityX</span>
+        </span>
+      </a>
+    </div>
   </div>
 
   <script>

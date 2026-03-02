@@ -77,6 +77,37 @@
       background: #334155; padding: 2px 8px; border-radius: 4px;
       font-family: monospace; font-size: 13px; border: 1px solid #475569;
     }
+    .credits {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+      text-align: center;
+    }
+    .credits a {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #94a3b8;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .credits a:hover { color: #e2e8f0; }
+    .credits img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #334155;
+      transition: border-color 0.2s;
+    }
+    .credits a:hover img { border-color: #38bdf8; }
+    .credits .credit-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .credits .dev-by { font-size: 11px; color: #64748b; }
+    .credits .dev-name { font-size: 14px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -128,6 +159,16 @@
         <li>ถ้าถูกถามเรื่อง execution policy ให้พิมพ์ <kbd>Y</kbd> แล้วกด Enter</li>
         <li>เปิดหน้าต่าง PowerShell ไว้ อย่าปิด</li>
       </ol>
+    </div>
+
+    <div class="credits">
+      <a href="https://github.com/trin-zenityx" target="_blank" rel="noopener">
+        <img src="https://avatars.githubusercontent.com/u/258954177?s=128&v=4" alt="ZenityX Logo">
+        <span class="credit-text">
+          <span class="dev-by">Developed by</span>
+          <span class="dev-name">ZenityX</span>
+        </span>
+      </a>
     </div>
   </div>
 
