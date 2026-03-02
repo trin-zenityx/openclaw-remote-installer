@@ -40,13 +40,12 @@ body {
   color: inherit;
 }
 .header-logo {
-  height: 22px;
+  height: 26px;
   width: auto;
-  filter: brightness(0) invert(1);
   transition: all 0.2s;
   opacity: 0.85;
 }
-.header-brand:hover .header-logo { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 4px rgba(56,189,248,0.4)); }
+.header-brand:hover .header-logo { opacity: 1; filter: drop-shadow(0 0 4px rgba(56,189,248,0.4)); }
 .header-brand-text {
   display: flex;
   flex-direction: column;
