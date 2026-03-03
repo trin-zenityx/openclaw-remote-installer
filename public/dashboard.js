@@ -15,7 +15,8 @@ const statusText = document.getElementById('status-text');
 const sysinfoContent = document.getElementById('sysinfo-content');
 const aiContent = document.getElementById('ai-content');
 const aiBadge = document.getElementById('ai-badge');
-const tunnelUrlEl = document.getElementById('tunnel-url');
+const roomIdEl = document.getElementById('room-id');
+const studentUrlEl = document.getElementById('student-url');
 const uptimeEl = document.getElementById('uptime');
 const autoInstallBtn = document.getElementById('auto-install-btn');
 
@@ -167,7 +168,7 @@ socket.on('connect', () => {
 });
 
 socket.on('connect_error', (err) => {
-  if (err.message === 'Unauthorized') {
+  if (err.message === 'Unauthorized' || err.message === 'No room' || err.message === 'Room expired') {
     window.location.href = '/login';
     return;
   }
@@ -175,8 +176,12 @@ socket.on('connect_error', (err) => {
 });
 
 socket.on('init', (data) => {
-  if (data.publicUrl) {
-    tunnelUrlEl.textContent = data.publicUrl;
+  // Room info
+  if (data.roomId) {
+    roomIdEl.textContent = data.roomId;
+  }
+  if (data.studentUrl) {
+    studentUrlEl.textContent = data.studentUrl;
   }
 
   if (data.agentConnected && data.systemInfo) {
@@ -215,6 +220,11 @@ socket.on('agent-connected', (data) => {
 socket.on('agent-disconnected', () => {
   setConnected(false);
   appendTerminal('นักเรียนตัดการเชื่อมต่อ', 'stderr');
+});
+
+socket.on('room-expired', () => {
+  appendTerminal('ห้องเรียนหมดเวลาแล้ว กรุณาเข้าสู่ระบบใหม่', 'stderr');
+  setTimeout(() => { window.location.href = '/login'; }, 3000);
 });
 
 socket.on('command-queued', (data) => {
@@ -265,7 +275,13 @@ function startStatusPolling() {
   statusPollInterval = setInterval(async () => {
     try {
       const res = await fetch('/api/dashboard/status');
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 404) {
+          // Room expired
+          window.location.href = '/login';
+        }
+        return;
+      }
       const data = await res.json();
 
       // Sync agent status if out of sync
@@ -305,6 +321,17 @@ window.runQuickCommand = function(cmd) {
 window.autoInstall = function() {
   aiContent.textContent = '';
   socket.emit('auto-install');
+};
+
+window.copyStudentUrl = function() {
+  const url = studentUrlEl.textContent;
+  if (!url || url === '-') return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-url-btn');
+    btn.textContent = 'คัดลอกแล้ว!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'คัดลอก'; btn.classList.remove('copied'); }, 2000);
+  });
 };
 
 function clearTerminal() {

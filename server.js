@@ -6,27 +6,17 @@ const express = require('express');
 const http = require('http');
 const { Server: SocketIO } = require('socket.io');
 
-const Session = require('./lib/session');
-const CommandQueue = require('./lib/command-queue');
-const AIHelper = require('./lib/ai-helper');
+const { RoomManager } = require('./lib/room-manager');
 const { startTunnel } = require('./lib/tunnel');
 
 // --- Config ---
 const PORT = process.env.PORT || 3000;
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'teacher123';
-const AGENT_TOKEN = process.env.AGENT_TOKEN || crypto.randomBytes(16).toString('hex');
 const IS_CLOUD = !!(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RENDER_EXTERNAL_URL || process.env.CLOUD_URL);
 
 // --- State ---
-const session = new Session();
-const commandQueue = new CommandQueue();
-let aiHelper = null;
+const roomManager = new RoomManager(process.env.ANTHROPIC_API_KEY || null);
 let publicUrl = null;
-let teacherSocket = null;
-
-if (process.env.ANTHROPIC_API_KEY) {
-  aiHelper = new AIHelper(process.env.ANTHROPIC_API_KEY);
-}
 
 // --- Express ---
 const app = express();
@@ -39,9 +29,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // --- Middleware ---
 function requireAgentToken(req, res, next) {
   const token = req.headers['x-agent-token'];
-  if (token !== AGENT_TOKEN) {
+  const room = roomManager.getRoomByToken(token);
+  if (!room) {
     return res.status(401).json({ error: 'Invalid agent token' });
   }
+  req.room = room;
   next();
 }
 
@@ -58,10 +50,16 @@ function hashPassword(pw) {
   return crypto.createHash('sha256').update(pw + 'openclaw-salt').digest('hex').slice(0, 32);
 }
 
+function extractRoomId(req) {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/room_id=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 // --- Public Routes ---
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', agentConnected: session.agentConnected });
+  res.json({ status: 'ok', rooms: roomManager.rooms.size });
 });
 
 // Login page
@@ -73,15 +71,52 @@ app.post('/api/login', (req, res) => {
   const { password } = req.body;
   if (password === DASHBOARD_PASSWORD) {
     const hash = hashPassword(DASHBOARD_PASSWORD);
-    res.setHeader('Set-Cookie', `dashboard_auth=${hash}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`);
-    res.json({ success: true });
+    const room = roomManager.createRoom();
+
+    res.setHeader('Set-Cookie', [
+      `dashboard_auth=${hash}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`,
+      `room_id=${room.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`
+    ]);
+    console.log(`Room ${room.id} created`);
+    res.json({ success: true, roomId: room.id });
   } else {
     res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
   }
 });
 
-// Serve agent scripts with baked-in config
-app.get('/api/agent-script/:os', (req, res) => {
+// Dashboard (requires login + valid room)
+app.get('/dashboard', requireDashboardAuth, (req, res) => {
+  const roomId = extractRoomId(req);
+  if (!roomId || !roomManager.getRoom(roomId)) {
+    res.setHeader('Set-Cookie', 'room_id=; Path=/; Max-Age=0');
+    return res.redirect('/login');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// --- Room-Specific Student Routes ---
+
+// Student landing page
+app.get('/r/:roomId', (req, res) => {
+  const room = roomManager.getRoom(req.params.roomId);
+  if (!room) {
+    return res.status(404).send(`
+      <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#e2e8f0">
+        <h2>ห้องเรียนไม่พบ หรือหมดเวลาแล้ว</h2>
+        <p>กรุณาขอ URL ใหม่จากอาจารย์</p>
+      </body></html>
+    `);
+  }
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+});
+
+// Room-specific agent script download
+app.get('/r/:roomId/agent/:os', (req, res) => {
+  const room = roomManager.getRoom(req.params.roomId);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
   const os = req.params.os;
   const serverUrl = publicUrl || `http://localhost:${PORT}`;
   let filename;
@@ -100,45 +135,42 @@ app.get('/api/agent-script/:os', (req, res) => {
   try {
     let script = fs.readFileSync(filePath, 'utf-8');
     script = script.replace(/SERVER_URL_PLACEHOLDER/g, serverUrl);
-    script = script.replace(/AGENT_TOKEN_PLACEHOLDER/g, AGENT_TOKEN);
+    script = script.replace(/AGENT_TOKEN_PLACEHOLDER/g, room.agentToken);
     res.send(script);
   } catch (err) {
     res.status(500).json({ error: 'Agent script not found' });
   }
 });
 
-// Dashboard (requires login)
-app.get('/dashboard', requireDashboardAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
 // --- Agent API Routes ---
 
 app.post('/api/agent/register', requireAgentToken, (req, res) => {
-  if (session.agentConnected) {
-    session.reset();
+  const room = req.room;
+  if (room.session.agentConnected) {
+    room.session.reset();
   }
-  session.registerAgent(req.body);
+  room.session.registerAgent(req.body);
 
-  if (teacherSocket) {
-    teacherSocket.emit('agent-connected', { systemInfo: req.body });
+  if (room.teacherSocket) {
+    room.teacherSocket.emit('agent-connected', { systemInfo: req.body });
   }
 
-  console.log(`Agent connected: ${req.body.hostname || 'unknown'} (${req.body.os})`);
+  console.log(`Agent connected to room ${room.id}: ${req.body.hostname || 'unknown'} (${req.body.os})`);
   res.json({ status: 'registered' });
 });
 
 app.get('/api/agent/poll', requireAgentToken, (req, res) => {
-  if (!session.agentConnected) {
+  const room = req.room;
+  if (!room.session.agentConnected) {
     return res.status(403).json({ error: 'Not registered' });
   }
 
-  session.heartbeat();
+  room.session.heartbeat();
 
-  const nextCommand = commandQueue.dequeue();
+  const nextCommand = room.commandQueue.dequeue();
   if (nextCommand) {
-    if (teacherSocket) {
-      teacherSocket.emit('command-executing', { id: nextCommand.id, command: nextCommand.command });
+    if (room.teacherSocket) {
+      room.teacherSocket.emit('command-executing', { id: nextCommand.id, command: nextCommand.command });
     }
     return res.json({ id: nextCommand.id, command: nextCommand.command });
   }
@@ -147,6 +179,7 @@ app.get('/api/agent/poll', requireAgentToken, (req, res) => {
 });
 
 app.post('/api/agent/result', requireAgentToken, (req, res) => {
+  const room = req.room;
   const { id, stdout, stderr, exitCode, encoding } = req.body;
 
   let decodedStdout = stdout || '';
@@ -161,22 +194,22 @@ app.post('/api/agent/result', requireAgentToken, (req, res) => {
     }
   }
 
-  const completed = commandQueue.completePending(id, {
+  const completed = room.commandQueue.completePending(id, {
     stdout: decodedStdout,
     stderr: decodedStderr,
     exitCode
   });
 
   if (completed) {
-    session.addCommandResult(id, completed.command, {
+    room.session.addCommandResult(id, completed.command, {
       stdout: decodedStdout,
       stderr: decodedStderr,
       exitCode
     });
   }
 
-  if (teacherSocket) {
-    teacherSocket.emit('command-output', {
+  if (room.teacherSocket) {
+    room.teacherSocket.emit('command-output', {
       id,
       command: completed ? completed.command : null,
       stdout: decodedStdout,
@@ -189,17 +222,25 @@ app.post('/api/agent/result', requireAgentToken, (req, res) => {
 });
 
 app.post('/api/agent/heartbeat', requireAgentToken, (req, res) => {
-  session.heartbeat();
+  req.room.session.heartbeat();
   res.json({ status: 'ok' });
 });
 
 // --- Dashboard Status API (fallback for Socket.IO) ---
 
 app.get('/api/dashboard/status', requireDashboardAuth, (req, res) => {
+  const roomId = extractRoomId(req);
+  const room = roomManager.getRoom(roomId);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  const studentUrl = publicUrl ? `${publicUrl}/r/${room.id}` : `http://localhost:${PORT}/r/${room.id}`;
   res.json({
-    agentConnected: session.agentConnected,
-    systemInfo: session.systemInfo,
-    hasAI: !!aiHelper,
+    roomId: room.id,
+    studentUrl,
+    agentConnected: room.session.agentConnected,
+    systemInfo: room.session.systemInfo,
+    hasAI: !!room.aiHelper,
     publicUrl
   });
 });
@@ -214,51 +255,75 @@ const io = new SocketIO(server, {
 
 io.use((socket, next) => {
   const cookie = socket.handshake.headers.cookie || '';
-  const match = cookie.match(/dashboard_auth=([^;]+)/);
-  if (match && match[1] === hashPassword(DASHBOARD_PASSWORD)) {
-    return next();
+
+  const authMatch = cookie.match(/dashboard_auth=([^;]+)/);
+  if (!authMatch || authMatch[1] !== hashPassword(DASHBOARD_PASSWORD)) {
+    return next(new Error('Unauthorized'));
   }
-  return next(new Error('Unauthorized'));
+
+  const roomMatch = cookie.match(/room_id=([^;]+)/);
+  if (!roomMatch) {
+    return next(new Error('No room'));
+  }
+
+  const room = roomManager.getRoom(roomMatch[1]);
+  if (!room) {
+    return next(new Error('Room expired'));
+  }
+
+  socket.roomId = room.id;
+  return next();
 });
 
 io.on('connection', (socket) => {
-  console.log('Teacher dashboard connected');
-  teacherSocket = socket;
+  const room = roomManager.getRoom(socket.roomId);
+  if (!room) {
+    socket.emit('error-msg', { message: 'ห้องหมดอายุแล้ว' });
+    socket.disconnect(true);
+    return;
+  }
+
+  console.log(`Teacher connected to room ${room.id}`);
+  room.teacherSocket = socket;
+
+  const studentUrl = publicUrl ? `${publicUrl}/r/${room.id}` : `http://localhost:${PORT}/r/${room.id}`;
 
   socket.emit('init', {
-    agentConnected: session.agentConnected,
-    systemInfo: session.systemInfo,
-    commandHistory: session.commandHistory,
+    roomId: room.id,
+    studentUrl,
+    agentConnected: room.session.agentConnected,
+    systemInfo: room.session.systemInfo,
+    commandHistory: room.session.commandHistory,
     publicUrl,
-    queueStatus: commandQueue.getStatus(),
-    hasAI: !!aiHelper
+    queueStatus: room.commandQueue.getStatus(),
+    hasAI: !!room.aiHelper
   });
 
   socket.on('run-command', ({ command }) => {
-    if (!session.agentConnected) {
+    if (!room.session.agentConnected) {
       socket.emit('error-msg', { message: 'ยังไม่มีนักเรียนเชื่อมต่อ' });
       return;
     }
-    const entry = commandQueue.enqueue(command);
+    const entry = room.commandQueue.enqueue(command);
     socket.emit('command-queued', { id: entry.id, command });
   });
 
   socket.on('auto-install', async () => {
-    if (!aiHelper) {
+    if (!room.aiHelper) {
       socket.emit('error-msg', { message: 'ยังไม่ได้ตั้งค่า API Key กรุณาตั้งค่า ANTHROPIC_API_KEY' });
       return;
     }
-    if (!session.agentConnected) {
+    if (!room.session.agentConnected) {
       socket.emit('error-msg', { message: 'ยังไม่มีนักเรียนเชื่อมต่อ' });
       return;
     }
 
-    aiHelper.resetConversation();
-    session.installationState = 'gathering-info';
+    room.aiHelper.resetConversation();
+    room.session.installationState = 'gathering-info';
     socket.emit('ai-thinking', { message: 'AI กำลังวิเคราะห์ระบบ...' });
 
     try {
-      const suggestion = await aiHelper.analyzeAndSuggest(session);
+      const suggestion = await room.aiHelper.analyzeAndSuggest(room.session);
       socket.emit('ai-suggestion', {
         stepId: crypto.randomUUID(),
         command: suggestion.command,
@@ -274,7 +339,7 @@ io.on('connection', (socket) => {
     if (!command) {
       socket.emit('ai-thinking', { message: 'AI กำลังคิด...' });
       try {
-        const suggestion = await aiHelper.analyzeAndSuggest(session);
+        const suggestion = await room.aiHelper.analyzeAndSuggest(room.session);
         socket.emit('ai-suggestion', {
           stepId: crypto.randomUUID(),
           command: suggestion.command,
@@ -287,23 +352,23 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const entry = commandQueue.enqueue(command);
+    const entry = room.commandQueue.enqueue(command);
     socket.emit('command-queued', { id: entry.id, command });
 
     const waitForResult = () => {
       const checkInterval = setInterval(async () => {
-        const lastEntry = session.commandHistory.find(h => h.id === entry.id);
+        const lastEntry = room.session.commandHistory.find(h => h.id === entry.id);
         if (lastEntry) {
           clearInterval(checkInterval);
 
-          if (aiHelper) {
-            await aiHelper.feedResult(command, lastEntry.stdout, lastEntry.stderr, lastEntry.exitCode);
+          if (room.aiHelper) {
+            await room.aiHelper.feedResult(command, lastEntry.stdout, lastEntry.stderr, lastEntry.exitCode);
             socket.emit('ai-thinking', { message: 'AI กำลังวิเคราะห์ผลลัพธ์...' });
 
             try {
-              const suggestion = await aiHelper.analyzeAndSuggest(session);
+              const suggestion = await room.aiHelper.analyzeAndSuggest(room.session);
               if (suggestion.isLast) {
-                session.installationState = 'complete';
+                room.session.installationState = 'complete';
                 socket.emit('install-complete', { summary: suggestion.explanation });
               } else {
                 socket.emit('ai-suggestion', {
@@ -331,37 +396,43 @@ io.on('connection', (socket) => {
   });
 
   socket.on('cancel', () => {
-    commandQueue.clear();
+    room.commandQueue.clear();
     socket.emit('error-msg', { message: 'ล้างคิวคำสั่งแล้ว' });
   });
 
   socket.on('disconnect', () => {
-    console.log('Teacher dashboard disconnected');
-    teacherSocket = null;
+    console.log(`Teacher disconnected from room ${room.id}`);
+    room.teacherSocket = null;
   });
 });
 
-// --- Heartbeat checker ---
+// --- Heartbeat checker (all rooms) ---
 setInterval(() => {
-  if (session.agentConnected && !session.isAgentAlive(30000)) {
-    console.log('Agent heartbeat timeout - disconnecting');
-    session.disconnectAgent();
-    if (teacherSocket) {
-      teacherSocket.emit('agent-disconnected', {});
+  for (const [id, room] of roomManager.rooms) {
+    if (room.session.agentConnected && !room.session.isAgentAlive(30000)) {
+      console.log(`Agent heartbeat timeout in room ${id}`);
+      room.session.disconnectAgent();
+      if (room.teacherSocket) {
+        room.teacherSocket.emit('agent-disconnected', {});
+      }
     }
   }
 }, 10000);
+
+// --- Room cleanup (every 5 minutes) ---
+setInterval(() => {
+  roomManager.cleanup(2 * 60 * 60 * 1000); // 2 hours TTL
+}, 5 * 60 * 1000);
 
 // --- Start ---
 async function start() {
   server.listen(PORT, '0.0.0.0', async () => {
     console.log('');
     console.log('========================================');
-    console.log('  OpenClaw Remote Installer');
+    console.log('  OpenClaw Remote Installer (Multi-Room)');
     console.log('========================================');
     console.log('');
 
-    // Determine public URL
     if (process.env.RAILWAY_PUBLIC_DOMAIN) {
       publicUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
       console.log(`  Cloud:     ${publicUrl}`);
@@ -375,7 +446,6 @@ async function start() {
       console.log(`  Cloud:     ${publicUrl}`);
     } else {
       console.log(`  Local:     http://localhost:${PORT}`);
-      // Start tunnel for local development
       try {
         const tunnel = await startTunnel(PORT);
         publicUrl = tunnel.url;
@@ -391,10 +461,7 @@ async function start() {
     console.log(`  Dashboard: ${publicUrl}/dashboard`);
     console.log(`  Password:  ${DASHBOARD_PASSWORD}`);
     console.log('');
-    console.log(`  Agent Token: ${AGENT_TOKEN}`);
-    console.log('');
-    console.log('  ส่ง URL นี้ให้นักเรียน: ' + publicUrl);
-    console.log('  เปิด Dashboard ในเบราว์เซอร์ของคุณ');
+    console.log('  อาจารย์แต่ละคน Login → สร้างห้อง → ส่ง URL ให้นักเรียน');
     console.log('========================================');
     console.log('');
   });

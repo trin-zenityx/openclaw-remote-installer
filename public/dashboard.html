@@ -49,8 +49,15 @@
         <h2 class="panel-title">การเชื่อมต่อ</h2>
         <div class="conn-info">
           <div class="conn-row">
+            <span class="conn-label">ห้องเรียน</span>
+            <span class="conn-value" id="room-id" style="font-family:monospace;color:#38bdf8">-</span>
+          </div>
+          <div class="conn-row">
             <span class="conn-label">URL สำหรับนักเรียน</span>
-            <span class="conn-value" id="tunnel-url">-</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span class="conn-value" id="student-url" style="word-break:break-all;font-size:11px">-</span>
+              <button class="copy-url-btn" onclick="copyStudentUrl()" id="copy-url-btn">คัดลอก</button>
+            </div>
           </div>
           <div class="conn-row">
             <span class="conn-label">เวลาเชื่อมต่อ</span>
