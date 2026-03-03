@@ -10,7 +10,7 @@
   <header class="header">
     <div class="header-left">
       <a href="https://github.com/trin-zenityx" target="_blank" rel="noopener" class="header-brand">
-        <img src="/logo-white.png" alt="ZenityX" class="header-logo">
+        <img src="/logo-black.png" alt="ZenityX" class="header-logo">
         <div class="header-brand-text">
           <h1>OpenClaw Remote Installer</h1>
         </div>
@@ -50,7 +50,7 @@
         <div class="conn-info">
           <div class="conn-row">
             <span class="conn-label">ห้องเรียน</span>
-            <span class="conn-value" id="room-id" style="font-family:monospace;color:#38bdf8">-</span>
+            <span class="conn-value" id="room-id" style="font-family:monospace;color:#dc2626">-</span>
           </div>
           <div class="conn-row">
             <span class="conn-label">URL สำหรับนักเรียน</span>
@@ -90,8 +90,13 @@
         </h2>
         <div class="ai-content" id="ai-content">
           <div class="ai-message info">
-            กดปุ่ม "ติดตั้งอัตโนมัติ" เพื่อให้ AI ช่วยติดตั้ง หรือพิมพ์คำสั่งเองด้านบน
+            กดปุ่ม "ติดตั้งอัตโนมัติ" หรือพิมพ์ข้อความด้านล่างเพื่อสั่ง AI
           </div>
+        </div>
+        <div class="ai-input-row">
+          <input type="text" id="ai-input" class="ai-input" placeholder="พิมพ์ข้อความถาม AI... เช่น 'ตรวจ disk space'" disabled
+                 onkeydown="if(event.key==='Enter')sendAIChat()">
+          <button class="ai-send-btn" onclick="sendAIChat()" disabled id="ai-send-btn">ส่ง</button>
         </div>
       </div>
     </main>

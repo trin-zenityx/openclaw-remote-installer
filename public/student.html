@@ -8,8 +8,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      background: #ffffff;
+      color: #1e293b;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -18,50 +18,53 @@
     .container {
       max-width: 600px;
       width: 90%;
-      background: #1e293b;
+      background: #ffffff;
       border-radius: 16px;
       padding: 40px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
     }
     .logo { text-align: center; margin-bottom: 24px; }
     .logo h1 {
       font-size: 28px;
-      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      background: linear-gradient(135deg, #dc2626, #f87171);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .logo p { color: #94a3b8; margin-top: 8px; font-size: 16px; }
+    .logo p { color: #64748b; margin-top: 8px; font-size: 16px; }
     .room-badge {
       display: inline-block;
-      background: #334155;
+      background: #fef2f2;
       padding: 4px 12px;
       border-radius: 6px;
       font-family: monospace;
       font-size: 14px;
-      color: #38bdf8;
+      color: #dc2626;
       margin-top: 8px;
+      border: 1px solid #fecaca;
     }
     .status {
       text-align: center; padding: 16px;
-      background: #0f172a; border-radius: 8px; margin-bottom: 24px;
+      background: #f0fdf4; border-radius: 8px; margin-bottom: 24px;
+      border: 1px solid #bbf7d0;
     }
     .status .dot {
       display: inline-block; width: 10px; height: 10px;
-      border-radius: 50%; background: #22c55e; margin-right: 8px;
+      border-radius: 50%; background: #16a34a; margin-right: 8px;
       animation: pulse 2s infinite;
     }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
     .os-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .os-tab {
-      flex: 1; padding: 12px; background: #334155;
+      flex: 1; padding: 12px; background: #f1f5f9;
       border: 2px solid transparent; border-radius: 8px;
-      color: #94a3b8; cursor: pointer; text-align: center;
+      color: #64748b; cursor: pointer; text-align: center;
       font-size: 15px; transition: all 0.2s;
     }
-    .os-tab:hover { background: #475569; }
-    .os-tab.active { border-color: #38bdf8; color: #38bdf8; background: #1e3a5f; }
+    .os-tab:hover { background: #e2e8f0; }
+    .os-tab.active { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
     .command-box {
-      background: #0f172a; border: 1px solid #334155;
+      background: #1e293b; border: 1px solid #e2e8f0;
       border-radius: 8px; padding: 16px; margin-bottom: 16px; position: relative;
     }
     .command-box code {
@@ -71,26 +74,27 @@
     }
     .copy-btn {
       position: absolute; top: 12px; right: 12px;
-      padding: 6px 14px; background: #38bdf8; color: #0f172a;
+      padding: 6px 14px; background: #dc2626; color: #ffffff;
       border: none; border-radius: 6px; cursor: pointer;
       font-weight: 600; font-size: 13px; transition: all 0.2s;
     }
-    .copy-btn:hover { background: #7dd3fc; }
-    .copy-btn.copied { background: #22c55e; }
+    .copy-btn:hover { background: #b91c1c; }
+    .copy-btn.copied { background: #16a34a; }
     .instructions {
-      background: #1a2332; border-radius: 8px; padding: 20px; margin-top: 16px;
+      background: #f8fafc; border-radius: 8px; padding: 20px; margin-top: 16px;
+      border: 1px solid #e2e8f0;
     }
-    .instructions h3 { color: #38bdf8; margin-bottom: 12px; font-size: 16px; }
+    .instructions h3 { color: #dc2626; margin-bottom: 12px; font-size: 16px; }
     .instructions ol { padding-left: 20px; }
-    .instructions li { color: #cbd5e1; margin-bottom: 8px; line-height: 1.6; }
+    .instructions li { color: #475569; margin-bottom: 8px; line-height: 1.6; }
     .instructions kbd {
-      background: #334155; padding: 2px 8px; border-radius: 4px;
-      font-family: monospace; font-size: 13px; border: 1px solid #475569;
+      background: #e2e8f0; padding: 2px 8px; border-radius: 4px;
+      font-family: monospace; font-size: 13px; border: 1px solid #cbd5e1;
     }
     .credits {
       margin-top: 24px;
       padding-top: 20px;
-      border-top: 1px solid #334155;
+      border-top: 1px solid #e2e8f0;
       text-align: center;
     }
     .credits a {
@@ -98,19 +102,19 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: #94a3b8;
+      color: #64748b;
       font-size: 12px;
       transition: all 0.2s;
       opacity: 0.7;
     }
     .credits a:hover { opacity: 1; }
-    .credits .dev-by { font-size: 11px; color: #64748b; }
+    .credits .dev-by { font-size: 11px; color: #94a3b8; }
     .credits .logo-img {
       height: 28px;
       width: auto;
       transition: all 0.2s;
     }
-    .credits a:hover .logo-img { filter: drop-shadow(0 0 6px rgba(56,189,248,0.5)); }
+    .credits a:hover .logo-img { filter: drop-shadow(0 0 6px rgba(220,38,38,0.5)); }
   </style>
 </head>
 <body>
@@ -168,7 +172,7 @@
     <div class="credits">
       <a href="https://github.com/trin-zenityx" target="_blank" rel="noopener">
         <span class="dev-by">Developed by</span>
-        <img src="/logo-white.png" alt="ZenityX" class="logo-img">
+        <img src="/logo-black.png" alt="ZenityX" class="logo-img">
       </a>
     </div>
   </div>

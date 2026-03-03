@@ -19,6 +19,8 @@ const roomIdEl = document.getElementById('room-id');
 const studentUrlEl = document.getElementById('student-url');
 const uptimeEl = document.getElementById('uptime');
 const autoInstallBtn = document.getElementById('auto-install-btn');
+const aiInput = document.getElementById('ai-input');
+const aiSendBtn = document.getElementById('ai-send-btn');
 
 // --- DOM Helpers ---
 function el(tag, attrs, children) {
@@ -54,6 +56,8 @@ function setConnected(connected) {
   document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = !connected);
   cmdInput.disabled = !connected;
   runBtn.disabled = !connected;
+  aiInput.disabled = !connected;
+  aiSendBtn.disabled = !connected;
 
   if (connected) {
     connectedAt = Date.now();
@@ -217,6 +221,13 @@ socket.on('agent-connected', (data) => {
   }
 });
 
+socket.on('agent-reconnected', (data) => {
+  setConnected(true);
+  renderSystemInfo(data.systemInfo);
+  // Do NOT clear terminal - keep existing output
+  appendTerminal('นักเรียนเชื่อมต่อใหม่แล้ว (reconnected)', 'info');
+});
+
 socket.on('agent-disconnected', () => {
   setConnected(false);
   appendTerminal('นักเรียนตัดการเชื่อมต่อ', 'stderr');
@@ -238,6 +249,12 @@ socket.on('command-output', (data) => {
   if (data.stderr) appendTerminal(data.stderr, 'stderr');
   const exitCls = data.exitCode === 0 ? 'exit-ok' : 'exit-fail';
   appendTerminal(`Exit code: ${data.exitCode}`, exitCls);
+});
+
+socket.on('ai-user-message', (data) => {
+  const msg = el('div', { className: 'ai-message user-message', textContent: data.message });
+  aiContent.appendChild(msg);
+  aiContent.scrollTop = aiContent.scrollHeight;
 });
 
 socket.on('ai-thinking', (data) => {
@@ -340,6 +357,14 @@ function clearTerminal() {
     appendTerminal('ล้าง Terminal แล้ว', 'info');
   }
 }
+
+window.sendAIChat = function() {
+  const msg = aiInput.value.trim();
+  if (!msg) return;
+  socket.emit('ai-chat', { message: msg });
+  aiInput.value = '';
+  aiInput.focus();
+};
 
 window.runCommand = runCommand;
 window.clearTerminal = clearTerminal;

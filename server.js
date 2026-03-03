@@ -101,9 +101,9 @@ app.get('/r/:roomId', (req, res) => {
   const room = roomManager.getRoom(req.params.roomId);
   if (!room) {
     return res.status(404).send(`
-      <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#e2e8f0">
+      <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#ffffff;color:#1e293b">
         <h2>ห้องเรียนไม่พบ หรือหมดเวลาแล้ว</h2>
-        <p>กรุณาขอ URL ใหม่จากอาจารย์</p>
+        <p style="color:#64748b">กรุณาขอ URL ใหม่จากอาจารย์</p>
       </body></html>
     `);
   }
@@ -146,16 +146,36 @@ app.get('/r/:roomId/agent/:os', (req, res) => {
 
 app.post('/api/agent/register', requireAgentToken, (req, res) => {
   const room = req.room;
-  if (room.session.agentConnected) {
-    room.session.reset();
-  }
-  room.session.registerAgent(req.body);
 
-  if (room.teacherSocket) {
-    room.teacherSocket.emit('agent-connected', { systemInfo: req.body });
+  if (room.session.isSameAgent(req.body)) {
+    // Same agent reconnecting - preserve history & AI context
+    room.session.reconnectAgent(req.body);
+    console.log(`Agent reconnected to room ${room.id}: ${req.body.hostname || 'unknown'} (${req.body.os})`);
+
+    if (room.teacherSocket) {
+      room.teacherSocket.emit('agent-reconnected', {
+        systemInfo: req.body,
+        commandHistory: room.session.commandHistory
+      });
+    }
+  } else {
+    // New/different agent - full reset
+    if (room.session.agentConnected) {
+      room.session.reset();
+    }
+    room.session.registerAgent(req.body);
+
+    if (room.aiHelper) {
+      room.aiHelper.resetConversation();
+    }
+
+    console.log(`Agent connected to room ${room.id}: ${req.body.hostname || 'unknown'} (${req.body.os})`);
+
+    if (room.teacherSocket) {
+      room.teacherSocket.emit('agent-connected', { systemInfo: req.body });
+    }
   }
 
-  console.log(`Agent connected to room ${room.id}: ${req.body.hostname || 'unknown'} (${req.body.os})`);
   res.json({ status: 'registered' });
 });
 
@@ -389,6 +409,39 @@ io.on('connection', (socket) => {
     };
 
     waitForResult();
+  });
+
+  socket.on('ai-chat', async ({ message }) => {
+    if (!room.aiHelper) {
+      socket.emit('error-msg', { message: 'ยังไม่ได้ตั้งค่า API Key กรุณาตั้งค่า ANTHROPIC_API_KEY' });
+      return;
+    }
+    if (!room.session.agentConnected) {
+      socket.emit('error-msg', { message: 'ยังไม่มีนักเรียนเชื่อมต่อ' });
+      return;
+    }
+    if (!message || !message.trim()) return;
+
+    socket.emit('ai-user-message', { message: message.trim() });
+    socket.emit('ai-thinking', { message: 'AI กำลังคิด...' });
+
+    try {
+      const suggestion = await room.aiHelper.chat(message.trim(), room.session);
+
+      if (suggestion.isLast) {
+        room.session.installationState = 'complete';
+        socket.emit('install-complete', { summary: suggestion.explanation });
+      } else {
+        socket.emit('ai-suggestion', {
+          stepId: crypto.randomUUID(),
+          command: suggestion.command,
+          explanation: suggestion.explanation,
+          isLast: false
+        });
+      }
+    } catch (err) {
+      socket.emit('ai-error', { error: err.message });
+    }
   });
 
   socket.on('reject-step', () => {
