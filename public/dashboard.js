@@ -256,6 +256,37 @@ socket.on('error-msg', (data) => {
   appendTerminal(data.message, 'stderr');
 });
 
+// --- Status Polling Fallback (in case Socket.IO events are lost) ---
+
+let statusPollInterval = null;
+
+function startStatusPolling() {
+  if (statusPollInterval) return;
+  statusPollInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/dashboard/status');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // Sync agent status if out of sync
+      if (data.agentConnected && !agentConnected) {
+        console.log('Status poll: agent connected (Socket.IO event was missed)');
+        setConnected(true);
+        if (data.systemInfo) renderSystemInfo(data.systemInfo);
+        appendTerminal('นักเรียนเชื่อมต่อแล้ว! (sync)', 'info');
+      } else if (!data.agentConnected && agentConnected) {
+        console.log('Status poll: agent disconnected (Socket.IO event was missed)');
+        setConnected(false);
+        appendTerminal('นักเรียนตัดการเชื่อมต่อ (sync)', 'stderr');
+      }
+    } catch (e) {
+      // Network error, ignore
+    }
+  }, 5000); // Poll every 5 seconds
+}
+
+startStatusPolling();
+
 // --- Actions ---
 
 function runCommand() {

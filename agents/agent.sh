@@ -105,6 +105,7 @@ echo -e "${GREEN}(Keep this terminal open)${NC}"
 echo ""
 
 HEARTBEAT_COUNTER=0
+REGISTERED=true
 
 cleanup() {
   echo ""
@@ -125,6 +126,22 @@ while true; do
   RESPONSE=$(poll)
   HTTP_CODE=$(echo "$RESPONSE" | tail -1)
   BODY=$(echo "$RESPONSE" | sed '$d')
+
+  # Auto-reconnect on 403 (server restarted and lost session)
+  if [ "$HTTP_CODE" = "403" ] || [ "$HTTP_CODE" = "401" ]; then
+    if [ "$REGISTERED" = true ]; then
+      echo -e "${YELLOW}Connection lost. Reconnecting...${NC}"
+      REGISTERED=false
+    fi
+    if register; then
+      echo -e "${GREEN}Reconnected!${NC}"
+      REGISTERED=true
+    fi
+    sleep "$POLL_INTERVAL"
+    continue
+  fi
+
+  REGISTERED=true
 
   if [ "$HTTP_CODE" = "200" ]; then
     CMD_ID=$(json_val "$BODY" "id")

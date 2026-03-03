@@ -57,20 +57,6 @@ function Register-Agent {
     }
 }
 
-function Get-NextCommand {
-    $headers = @{ "X-Agent-Token" = $Token }
-    try {
-        $response = Invoke-WebRequest -Uri "$Server/api/agent/poll" `
-            -Headers $headers -ErrorAction Stop
-        if ($response.StatusCode -eq 200) {
-            return ($response.Content | ConvertFrom-Json)
-        }
-        return $null
-    } catch {
-        return $null
-    }
-}
-
 function Send-Result {
     param($Id, $StdOut, $StdErr, $ExitCode)
 
@@ -119,6 +105,7 @@ Write-Host "(Keep this window open)" -ForegroundColor Green
 Write-Host ""
 
 $heartbeatCounter = 0
+$isRegistered = $true
 
 while ($true) {
     # Heartbeat every 10 seconds
@@ -129,7 +116,38 @@ while ($true) {
     }
 
     # Poll for command
-    $task = Get-NextCommand
+    $pollResult = $null
+    $pollError = $false
+    $headers = @{ "X-Agent-Token" = $Token }
+    try {
+        $response = Invoke-WebRequest -Uri "$Server/api/agent/poll" `
+            -Headers $headers -ErrorAction Stop
+        if ($response.StatusCode -eq 200) {
+            $pollResult = ($response.Content | ConvertFrom-Json)
+        }
+    } catch {
+        $statusCode = 0
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        }
+        # Auto-reconnect on 403/401 (server restarted and lost session)
+        if ($statusCode -eq 403 -or $statusCode -eq 401) {
+            if ($isRegistered) {
+                Write-Host "Connection lost. Reconnecting..." -ForegroundColor Yellow
+                $isRegistered = $false
+            }
+            $reregistered = Register-Agent
+            if ($reregistered) {
+                Write-Host "Reconnected!" -ForegroundColor Green
+                $isRegistered = $true
+            }
+            Start-Sleep -Seconds $PollInterval
+            continue
+        }
+    }
+
+    $isRegistered = $true
+    $task = $pollResult
     if ($task -and $task.command) {
         Write-Host "[>] Running: $($task.command)" -ForegroundColor Cyan
 

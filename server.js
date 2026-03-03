@@ -193,9 +193,24 @@ app.post('/api/agent/heartbeat', requireAgentToken, (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// --- Dashboard Status API (fallback for Socket.IO) ---
+
+app.get('/api/dashboard/status', requireDashboardAuth, (req, res) => {
+  res.json({
+    agentConnected: session.agentConnected,
+    systemInfo: session.systemInfo,
+    hasAI: !!aiHelper,
+    publicUrl
+  });
+});
+
 // --- Socket.IO (Dashboard) ---
 
-const io = new SocketIO(server);
+const io = new SocketIO(server, {
+  transports: ['polling', 'websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
 
 io.use((socket, next) => {
   const cookie = socket.handshake.headers.cookie || '';
